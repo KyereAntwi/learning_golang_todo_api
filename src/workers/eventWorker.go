@@ -16,9 +16,8 @@ type EventBody struct {
 }
 
 func main() {
-	err := godotenv.Load("../../.env")
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+	if err := godotenv.Load("../../.env"); err != nil {
+		log.Println("No .env file found, using environment variables")
 	}
 
 	rabbitConn, err := utils.SetupRabbitMQ("todos_queue")

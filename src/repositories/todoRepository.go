@@ -3,17 +3,20 @@ package repositories
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
 	"todoapi.com/m/src/domain"
+	"todoapi.com/m/src/utils"
 )
 
 type TodoRepository struct {
-	db *sql.DB
+	db         *sql.DB
+	rabbitConn *utils.RabbitMQConnection
 }
 
-func NewTodoRepository(db *sql.DB) *TodoRepository {
-	return &TodoRepository{db: db}
+func NewTodoRepository(db *sql.DB, rabbitConn *utils.RabbitMQConnection) *TodoRepository {
+	return &TodoRepository{db: db, rabbitConn: rabbitConn}
 }
 
 func (r *TodoRepository) Create(title, description string) (int64, error) {
@@ -82,9 +85,23 @@ func (r *TodoRepository) Update(id int64, title, description string) error {
 	}
 
 	// log the current state of the todo before updating
-	// app.logger.Printf("Current state of todo before update: %+v", todo)
+	log.Printf("Updating todo ID %d: current title=%s, description=%s, status=%s", id, todo.GetTitle(), todo.GetDescription(), todo.GetStatus())
 	// publish an event before updating the todo
-	// eventBus.Publish("todo.update.started", todo)
+	var publisherService IPublisherServices = NewPublisherService(r.rabbitConn)
+	err = publisherService.PublishTodoUpdated(domain.TodoUpdatedEvent{
+		Title:       todo.GetTitle(),
+		ID:          todo.GetID(),
+		Description: todo.GetDescription(),
+		Status:      todo.GetStatus(),
+		CreatedAt:   todo.GetCreatedAt().Format(time.RFC3339),
+		UpdatedAt:   todo.GetUpdatedAt().Format(time.RFC3339),
+		EventType:   "todo_updated",
+	})
+	if err != nil {
+		log.Printf("Error publishing todo updated event: %v", err)
+		// we can choose to return the error or ignore it based on the requirements
+		// for now, we'll just log it and continue with the update
+	}
 
 	err = todo.Update(title, description)
 	if err != nil {

@@ -46,7 +46,7 @@ func (app *application) getAllTodos(w http.ResponseWriter, r *http.Request) {
 	page := r.URL.Query().Get("page")
 	pageSize := r.URL.Query().Get("page_size")
 
-	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db)
+	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db, app.rabbitConn)
 
 	pageInt, err := strconv.ParseInt(page, 10, 64)
 	if err != nil {
@@ -105,7 +105,7 @@ func (app *application) createTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db)
+	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db, app.rabbitConn)
 
 	exists, err := todoRepo.DoesTodoExist(createTodoDto.Title)
 
@@ -160,7 +160,7 @@ func (app *application) getTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db)
+	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db, app.rabbitConn)
 
 	todo, err := todoRepo.GetTodoByID(id)
 	if err != nil {
@@ -219,7 +219,7 @@ func (app *application) updateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db)
+	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db, app.rabbitConn)
 
 	err = todoRepo.Update(id, updateTodoDto.Title, updateTodoDto.Description)
 	if err != nil {
@@ -252,7 +252,7 @@ func (app *application) deleteTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db)
+	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db, app.rabbitConn)
 
 	err = todoRepo.Delete(id)
 	if err != nil {

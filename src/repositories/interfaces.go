@@ -11,3 +11,13 @@ type ITodoRepository interface {
 	GetAll(searchKey string, page int64, pageSize int64) ([]domain.Todo, error)
 	DoesTodoExist(title string) (bool, error)
 }
+
+type IPublisherServices interface {
+	PublishTodoCreated(todo domain.TodoCreatedEvent) error
+	PublishTodoUpdated(todo domain.TodoUpdatedEvent) error
+	PublishTodoCompleted(todo domain.TodoCompletedEvent) error
+}
+
+type IAuditingRepository interface {
+	RecordAuditEntry(entityType string, entityId int64, data string) error
+}

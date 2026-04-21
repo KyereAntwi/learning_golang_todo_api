@@ -7,12 +7,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-)
 
-const version = "0.1.0"
+	"todoapi.com/m/src/utils"
+	. "todoapi.com/m/src/utils"
+)
 
 type config struct {
 	port             int
@@ -22,17 +25,28 @@ type config struct {
 }
 
 type application struct {
-	config config
-	logger *log.Logger
-	db     *sql.DB
+	config     config
+	logger     *log.Logger
+	db         *sql.DB
+	rabbitConn *RabbitMQConnection
 }
 
 func main() {
 	var config config
 
-	flag.IntVar(&config.port, "port", 3000, "Server port to listen on")
-	flag.StringVar(&config.env, "env", "dev", "Application environment {dev|prod|staging}")
-	flag.StringVar(&config.version, "version", version, "Application version")
+	err := godotenv.Load("../../.env")
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+
+	port, err := strconv.Atoi(os.Getenv("PORT"))
+	if err != nil {
+		log.Fatalf("Error converting PORT to int: %v", err)
+	}
+
+	flag.IntVar(&config.port, "port", port, "Server port to listen on")
+	flag.StringVar(&config.env, "env", os.Getenv("APP_ENV"), "Application environment {dev|prod|staging}")
+	flag.StringVar(&config.version, "version", os.Getenv("VERSION"), "Application version")
 	flag.StringVar(&config.connectionString, "db-connection-string", os.Getenv("TODOS_DB_CONNECTION_STRING"), "Database connection string")
 	flag.Parse()
 
@@ -50,10 +64,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	rabbitConn, err := utils.SetupRabbitMQ("todos_queue")
+	utils.FailOnError(err, "Failed to setup RabbitMQ")
+	defer rabbitConn.Close()
+
 	app := &application{
-		config: config,
-		logger: logger,
-		db:     db,
+		config:     config,
+		logger:     logger,
+		db:         db,
+		rabbitConn: rabbitConn,
 	}
 
 	server := &http.Server{

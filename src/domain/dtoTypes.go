@@ -29,3 +29,25 @@ type UpdateTodoDto struct {
 type ChangeStatusDto struct {
 	Status string `json:"status"`
 }
+
+type SignUpDto struct {
+	Username     string `json:"username"`
+	Password     string `json:"password"`
+	Email        string `json:"email"`
+	PrimaryPhone string `json:"primary_phone"`
+}
+
+type LoginDto struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type RefreshTokenDto struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type LoginResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -22,6 +24,8 @@ type config struct {
 	env              string
 	version          string
 	connectionString string
+	jwtSecret        string
+	appHost          string
 }
 
 type application struct {
@@ -29,6 +33,7 @@ type application struct {
 	logger     *log.Logger
 	db         *sql.DB
 	rabbitConn *RabbitMQConnection
+	jwtManager *JWTManager
 }
 
 func main() {
@@ -47,6 +52,8 @@ func main() {
 	flag.StringVar(&config.env, "env", os.Getenv("APP_ENV"), "Application environment {dev|prod|staging}")
 	flag.StringVar(&config.version, "version", os.Getenv("VERSION"), "Application version")
 	flag.StringVar(&config.connectionString, "db-connection-string", os.Getenv("TODOS_DB_CONNECTION_STRING"), "Database connection string")
+	flag.StringVar(&config.jwtSecret, "jwt-secret", os.Getenv("JWT_SECRET"), "JWT secret key")
+	flag.StringVar(&config.appHost, "app-host", os.Getenv("APP_HOST"), "Application host")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
@@ -72,11 +79,15 @@ func main() {
 		logger:     logger,
 		db:         db,
 		rabbitConn: rabbitConn,
+		jwtManager: NewJWTManager(&config),
 	}
+
+	middleware := NewLoggerMiddleware(logger)
+	authMiddleware := NewAuthMiddleware(app.jwtManager)
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", config.port),
-		Handler:      app.routes(),
+		Handler:      middleware(authMiddleware(app.routes())),
 		ErrorLog:     logger,
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  time.Second * 10,
@@ -90,4 +101,23 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Graceful shutdown logic with context and signal handling can be added here
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		log.Println("Shutting down server...")
+
+		err := server.Shutdown(shutdownCtx)
+		if err != nil {
+			log.Printf("Error shutting down server: %v", err)
+		} else {
+			log.Println("Server gracefully stopped")
+		}
+	}()
+	wg.Wait()
 }

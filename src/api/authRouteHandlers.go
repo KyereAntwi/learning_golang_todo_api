@@ -3,9 +3,12 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"runtime/trace"
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	"todoapi.com/m/src/domain"
 	"todoapi.com/m/src/repositories"
 )
@@ -22,6 +25,12 @@ import (
 // @Failure 500 {string} string "Server Error"
 // @Router /signup [post]
 func (app *application) signUpRouteHandler(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("SignUpRouteHandler")
+	ctx, span := tracer.Start(r.Context(), "SignUpRouteHandler")
+	defer span.End()
+
+	defer trace.StartRegion(ctx, "SignUpRouteHandler").End()
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -29,6 +38,8 @@ func (app *application) signUpRouteHandler(w http.ResponseWriter, r *http.Reques
 
 	if app.db == nil {
 		app.logger.Printf("Database connection is nil")
+		span.AddEvent("Database connection is nil")
+		span.SetStatus(codes.Error, "Database connection is nil")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -37,6 +48,8 @@ func (app *application) signUpRouteHandler(w http.ResponseWriter, r *http.Reques
 	err := json.NewDecoder(r.Body).Decode(&signUpDto)
 	if err != nil {
 		app.logger.Printf("Error decoding request body: %v", err)
+		span.AddEvent("Error decoding request body")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
@@ -46,6 +59,8 @@ func (app *application) signUpRouteHandler(w http.ResponseWriter, r *http.Reques
 	isTaken, err := userRepo.IsUsernameTaken(signUpDto.Username)
 	if err != nil {
 		app.logger.Printf("Error checking if username is taken: %v", err)
+		span.AddEvent("Error checking if username is taken")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -58,6 +73,8 @@ func (app *application) signUpRouteHandler(w http.ResponseWriter, r *http.Reques
 	id, err := userRepo.Create(signUpDto.Username, signUpDto.Password, signUpDto.Email, signUpDto.PrimaryPhone)
 	if err != nil {
 		app.logger.Printf("Error creating user: %v", err)
+		span.AddEvent("Error creating user")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -93,6 +110,12 @@ func (app *application) signUpRouteHandler(w http.ResponseWriter, r *http.Reques
 // @Failure 500 {string} string "Server Error"
 // @Router /signin [post]
 func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("SignInRouteHandler")
+	ctx, span := tracer.Start(r.Context(), "SignInRouteHandler")
+	defer span.End()
+
+	defer trace.StartRegion(ctx, "SignInRouteHandler").End()
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -100,6 +123,8 @@ func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Reques
 
 	if app.db == nil {
 		app.logger.Printf("Database connection is nil")
+		span.AddEvent("Database connection is nil")
+		span.SetStatus(codes.Error, "Database connection is nil")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -108,6 +133,8 @@ func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Reques
 	err := json.NewDecoder(r.Body).Decode(&signInDto)
 	if err != nil {
 		app.logger.Printf("Error decoding request body: %v", err)
+		span.AddEvent("Error decoding request body")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
@@ -118,6 +145,8 @@ func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Reques
 
 	if err != nil {
 		app.logger.Printf("Error authenticating user: %v", err)
+		span.AddEvent("Error authenticating user")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
 	}
@@ -126,6 +155,8 @@ func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Reques
 
 	if err != nil {
 		app.logger.Printf("Error generating access token: %v", err)
+		span.AddEvent("Error generating access token")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -134,6 +165,8 @@ func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Reques
 
 	if err != nil {
 		app.logger.Printf("Error generating refresh token: %v", err)
+		span.AddEvent("Error generating refresh token")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -141,6 +174,8 @@ func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Reques
 	hashedRefreshToken, err := app.jwtManager.HashRefreshToken(refreshToken)
 	if err != nil {
 		app.logger.Printf("Error hashing refresh token: %v", err)
+		span.AddEvent("Error hashing refresh token")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -155,6 +190,8 @@ func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Reques
 	err = userRepo.StoreRefreshToken(refreshTokenDomain)
 	if err != nil {
 		app.logger.Printf("Error storing refresh token: %v", err)
+		span.AddEvent("Error storing refresh token")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -172,6 +209,8 @@ func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Reques
 	responseJson, err := json.Marshal(response)
 	if err != nil {
 		app.logger.Printf("Error marshaling response: %v", err)
+		span.AddEvent("Error marshaling response")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -191,6 +230,12 @@ func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Reques
 // @Failure 500 {string} string "Server Error"
 // @Router /refresh-token [post]
 func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("RefreshTokenRouteHandler")
+	ctx, span := tracer.Start(r.Context(), "RefreshTokenRouteHandler")
+	defer span.End()
+
+	defer trace.StartRegion(ctx, "RefreshTokenRouteHandler").End()
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -198,6 +243,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 
 	if app.db == nil {
 		app.logger.Printf("Database connection is nil")
+		span.AddEvent("Database connection is nil")
+		span.SetStatus(codes.Error, "Database connection is nil")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -206,6 +253,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	err := json.NewDecoder(r.Body).Decode(&requestDto)
 	if err != nil {
 		app.logger.Printf("Error decoding request body: %v", err)
+		span.AddEvent("Error decoding request body")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
@@ -220,6 +269,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	userId, err := app.jwtManager.GetUserIDFromToken(requestDto.RefreshToken)
 	if err != nil {
 		app.logger.Printf("Error validating refresh token: %v", err)
+		span.AddEvent("Error validating refresh token")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
 		return
 	}
@@ -227,6 +278,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	currentRefreshToken, err := userRepo.GetRefreshTokenByUserID(uuid.MustParse(userId))
 	if err != nil {
 		app.logger.Printf("Error retrieving refresh token from database: %v", err)
+		span.AddEvent("Error retrieving refresh token from database")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
 		return
 	}
@@ -234,6 +287,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	// check if the refresh token is expired
 	if time.Now().After(currentRefreshToken.ExpiresAt) {
 		app.logger.Printf("Refresh token expired for user %s", userId)
+		span.AddEvent("Refresh token expired")
+		span.SetStatus(codes.Error, "Refresh token expired")
 		http.Error(w, "Refresh token expired", http.StatusUnauthorized)
 		return
 	}
@@ -241,6 +296,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	err = app.jwtManager.CompareRefreshTokens(requestDto.RefreshToken, currentRefreshToken.HashedToken)
 	if err != nil {
 		app.logger.Printf("Error comparing refresh tokens: %v", err)
+		span.AddEvent("Error comparing refresh tokens")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
 		return
 	}
@@ -248,6 +305,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	newAccessToken, err := app.jwtManager.GenerateAccessToken(userId)
 	if err != nil {
 		app.logger.Printf("Error generating access token: %v", err)
+		span.AddEvent("Error generating access token")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -255,6 +314,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	newRefreshToken, expiresAt, err := app.jwtManager.GenerateRefreshToken(userId)
 	if err != nil {
 		app.logger.Printf("Error generating refresh token: %v", err)
+		span.AddEvent("Error generating refresh token")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -262,6 +323,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	hashedRefreshToken, err := app.jwtManager.HashRefreshToken(newRefreshToken)
 	if err != nil {
 		app.logger.Printf("Error hashing refresh token: %v", err)
+		span.AddEvent("Error hashing refresh token")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -270,6 +333,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	err = userRepo.DeleteRefreshToken(uuid.MustParse(userId))
 	if err != nil {
 		app.logger.Printf("Error deleting old refresh token from database: %v", err)
+		span.AddEvent("Error deleting old refresh token from database")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -284,6 +349,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	err = userRepo.StoreRefreshToken(refreshTokenDomain)
 	if err != nil {
 		app.logger.Printf("Error storing refresh token in database: %v", err)
+		span.AddEvent("Error storing refresh token in database")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -301,6 +368,8 @@ func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.
 	responseJson, err := json.Marshal(response)
 	if err != nil {
 		app.logger.Printf("Error marshaling response: %v", err)
+		span.AddEvent("Error marshaling response")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}

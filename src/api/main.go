@@ -15,6 +15,7 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 
+	"todoapi.com/m/src/traceConfigurations"
 	"todoapi.com/m/src/utils"
 	. "todoapi.com/m/src/utils"
 
@@ -44,6 +45,18 @@ type application struct {
 // @host localhost:3000
 // @BasePath /api/v1
 func main() {
+
+	// initialize OpenTelemetry tracer
+	tracer, err := traceConfigurations.InitTracer()
+	if err != nil {
+		log.Fatalf("Error initializing OpenTelemetry tracer: %v", err)
+	}
+	defer func() {
+		if err := tracer.Shutdown(context.Background()); err != nil {
+			log.Fatalf("Error shutting down OpenTelemetry tracer: %v", err)
+		}
+	}()
+
 	var config config
 
 	if err := godotenv.Load("../../.env"); err != nil {

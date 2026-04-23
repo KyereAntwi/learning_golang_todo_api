@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"net/http"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // @Summary Health Check
@@ -18,6 +21,14 @@ func (app *application) healthcheckHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	tracer := otel.Tracer("healthcheckHandler")
+	_, span := tracer.Start(r.Context(), "Health Check")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("http.method", r.Method),
+		attribute.String("http.url", r.URL.Path),
+	)
 	fmt.Fprintln(w, "status: available")
 	fmt.Fprintf(w, "environment: %s\n", app.config.env)
 	fmt.Fprintf(w, "version: %s\n", app.config.version)

@@ -3,6 +3,8 @@ package domain
 import (
 	"errors"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Todo struct {
@@ -10,23 +12,33 @@ type Todo struct {
 	title       string
 	description string
 	status      string
+	createdBy   uuid.UUID
 	createdAt   time.Time
 	updatedAt   time.Time
 }
 
-func NewTodo(title, description string) *Todo {
+func NewTodo(title, description string, createdBy uuid.UUID) (*Todo, error) {
 
 	if title == "" {
-		panic("title cannot be empty")
+		return nil, errors.New("title cannot be empty")
+	}
+
+	if description == "" {
+		return nil, errors.New("description cannot be empty")
+	}
+
+	if createdBy == uuid.Nil {
+		return nil, errors.New("createdBy cannot be empty")
 	}
 
 	return &Todo{
 		title:       title,
 		description: description,
 		status:      "pending",
+		createdBy:   createdBy,
 		createdAt:   time.Now(),
 		updatedAt:   time.Now(),
-	}
+	}, nil
 }
 
 func (t *Todo) ChangeStatus(status string) error {
@@ -77,6 +89,10 @@ func (t Todo) GetCreatedAt() time.Time {
 
 func (t Todo) GetUpdatedAt() time.Time {
 	return t.updatedAt
+}
+
+func (t Todo) GetCreatedBy() uuid.UUID {
+	return t.createdBy
 }
 
 func (t *Todo) SetID(id int64) {

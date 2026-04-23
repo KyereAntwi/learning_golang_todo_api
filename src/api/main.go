@@ -17,6 +17,8 @@ import (
 
 	"todoapi.com/m/src/utils"
 	. "todoapi.com/m/src/utils"
+
+	_ "todoapi.com/m/docs"
 )
 
 type config struct {
@@ -36,6 +38,11 @@ type application struct {
 	jwtManager *JWTManager
 }
 
+// @title TODO Learning with Go API
+// @version 0.30
+// @description This is a TODO learning API built with Go.
+// @host localhost:3000
+// @BasePath /api/v1
 func main() {
 	var config config
 

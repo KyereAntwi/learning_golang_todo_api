@@ -4,6 +4,9 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
+
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 func NewLoggerMiddleware(logger *log.Logger) func(next http.Handler) http.Handler {
@@ -15,11 +18,17 @@ func NewLoggerMiddleware(logger *log.Logger) func(next http.Handler) http.Handle
 	}
 }
 
+func SwaggerHandler() http.Handler {
+	return httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	)
+}
+
 func NewAuthMiddleware(jwtManager *JWTManager) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			if r.URL.Path == healthCheckRoute || r.URL.Path == signUpRoute || r.URL.Path == signInRoute {
+			if r.URL.Path == healthCheckRoute || r.URL.Path == signUpRoute || r.URL.Path == signInRoute || strings.HasPrefix(r.URL.Path, swaggerRoute) {
 				next.ServeHTTP(w, r)
 				return
 			}

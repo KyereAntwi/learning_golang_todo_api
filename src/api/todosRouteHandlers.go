@@ -10,6 +10,16 @@ import (
 	"todoapi.com/m/src/repositories"
 )
 
+// @Summary Create or Get All Todos
+// @Description Create a new todo or get all todos
+// @ID create-get-all-todos
+// @Accept json
+// @Produce json
+// @Param todo body domain.CreateTodoDto true "Create Todo"
+// @Success 200 {array} domain.TodoDto
+// @Success 201 {object} map[string]interface{} "Created Todo ID"
+// @Router /todos [get]
+// @Router /todos [post]
 func (app *application) createGetAllTodosHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -21,6 +31,18 @@ func (app *application) createGetAllTodosHandler(w http.ResponseWriter, r *http.
 	}
 }
 
+// @Summary Get, Update, or Delete a Todo
+// @Description Get, update, or delete a todo by ID
+// @ID get-update-delete-todo
+// @Accept json
+// @Produce json
+// @Param id path int true "Todo ID"
+// @Param todo body domain.UpdateTodoDto true "Update Todo"
+// @Success 200 {object} domain.TodoDetailDto
+// @Success 204 "No Content"
+// @Router /todos/{id} [get]
+// @Router /todos/{id} [put]
+// @Router /todos/{id} [delete]
 func (app *application) getSingleUpdateDeleteTodoHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:

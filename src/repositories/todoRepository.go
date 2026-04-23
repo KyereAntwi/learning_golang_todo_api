@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"todoapi.com/m/src/domain"
 	"todoapi.com/m/src/utils"
 )
@@ -19,21 +20,24 @@ func NewTodoRepository(db *sql.DB, rabbitConn *utils.RabbitMQConnection) *TodoRe
 	return &TodoRepository{db: db, rabbitConn: rabbitConn}
 }
 
-func (r *TodoRepository) Create(title, description string) (int64, error) {
-	todo := domain.NewTodo(title, description)
-
-	query := `
-	INSERT INTO todos (title, description, status, created_at, updated_at) 
-	VALUES ($1, $2, $3, $4, $5) 
-	RETURNING id`
-
-	args := []interface{}{todo.GetTitle(), todo.GetDescription(), todo.GetStatus(), todo.GetCreatedAt(), todo.GetUpdatedAt()}
-
-	var id int64
-	err := r.db.QueryRow(query, args...).Scan(&id)
-
+func (r *TodoRepository) Create(title, description string, createdBy uuid.UUID) (int64, error) {
+	todo, err := domain.NewTodo(title, description, createdBy)
 	if err != nil {
 		return 0, err
+	}
+
+	query := `
+	INSERT INTO todos (title, description, status, created_by, created_at, updated_at) 
+	VALUES ($1, $2, $3, $4, $5, $6)
+	RETURNING id`
+
+	args := []interface{}{todo.GetTitle(), todo.GetDescription(), todo.GetStatus(), todo.GetCreatedBy(), todo.GetCreatedAt(), todo.GetUpdatedAt()}
+
+	var id int64
+	sqlErr := r.db.QueryRow(query, args...).Scan(&id)
+
+	if sqlErr != nil {
+		return 0, sqlErr
 	}
 
 	todo.SetID(id)
@@ -47,14 +51,15 @@ func (r *TodoRepository) GetTodoByID(id int64) (domain.Todo, error) {
 	}
 
 	query := `
-	SELECT id, title, description, status, created_at, updated_at 
+	SELECT id, title, description, status, created_by, created_at, updated_at 
 	FROM todos 
 	WHERE id = $1`
 
 	var title, description, status string
+	var createdBy uuid.UUID
 	var createdAt, updatedAt time.Time
 
-	err := r.db.QueryRow(query, id).Scan(&id, &title, &description, &status, &createdAt, &updatedAt)
+	err := r.db.QueryRow(query, id).Scan(&id, &title, &description, &status, &createdBy, &createdAt, &updatedAt)
 
 	if err != nil {
 		switch {
@@ -65,7 +70,11 @@ func (r *TodoRepository) GetTodoByID(id int64) (domain.Todo, error) {
 		}
 	}
 
-	todo := domain.NewTodo(title, description)
+	todo, err := domain.NewTodo(title, description, createdBy)
+	if err != nil {
+		return domain.Todo{}, err
+	}
+
 	todo.SetID(id)
 	todo.SetCreatedAt(createdAt)
 	todo.SetUpdatedAt(updatedAt)
@@ -170,7 +179,7 @@ func (r *TodoRepository) ChangeStatus(id int64, status string) error {
 	return nil
 }
 
-func (r *TodoRepository) GetAll(searchKey string, page int64, pageSize int64) ([]domain.Todo, error) {
+func (r *TodoRepository) GetAll(searchKey string, createdBy uuid.UUID, page int64, pageSize int64) ([]domain.Todo, error) {
 	if r.db == nil {
 		return []domain.Todo{}, errors.New("database connection is nil")
 	}
@@ -180,11 +189,12 @@ func (r *TodoRepository) GetAll(searchKey string, page int64, pageSize int64) ([
 	query := `
 	SELECT id, title, description, status
 	FROM todos 
-	WHERE title LIKE $1 OR description LIKE $1
+	WHERE (title LIKE $1 OR description LIKE $1)
+	AND created_by = $2
 	ORDER BY created_at DESC
-	LIMIT $2 OFFSET $3`
+	LIMIT $3 OFFSET $4`
 
-	rows, err := r.db.Query(query, "%"+searchKey+"%", pageSize, offset)
+	rows, err := r.db.Query(query, "%"+searchKey+"%", createdBy, pageSize, offset)
 	if err != nil {
 		return []domain.Todo{}, err
 	}
@@ -201,7 +211,8 @@ func (r *TodoRepository) GetAll(searchKey string, page int64, pageSize int64) ([
 			return []domain.Todo{}, err
 		}
 
-		todo := domain.NewTodo(title, description)
+		todo, _ := domain.NewTodo(title, description, createdBy)
+
 		todo.SetID(id)
 		todo.ChangeStatus(status)
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/google/uuid"
 	"todoapi.com/m/src/domain"
 	"todoapi.com/m/src/repositories"
 )
@@ -80,7 +81,21 @@ func (app *application) getAllTodos(w http.ResponseWriter, r *http.Request) {
 		pageSizeInt = 10
 	}
 
-	todos, err := todoRepo.GetAll(searchKey, pageInt, pageSizeInt)
+	loggedInUserID := r.Context().Value("userID")
+	if loggedInUserID == nil {
+		app.logger.Printf("User ID not found in context")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userUUID, err := uuid.Parse(loggedInUserID.(string))
+	if err != nil {
+		app.logger.Printf("Error parsing user ID: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	todos, err := todoRepo.GetAll(searchKey, userUUID, pageInt, pageSizeInt)
 	if err != nil {
 		app.logger.Printf("Error fetching todos: %v", err)
 		http.Error(w, "Server error", http.StatusInternalServerError)
@@ -142,7 +157,21 @@ func (app *application) createTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := todoRepo.Create(createTodoDto.Title, createTodoDto.Description)
+	loggedInUserID := r.Context().Value("userID")
+	if loggedInUserID == nil {
+		app.logger.Printf("User ID not found in context")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userUUID, err := uuid.Parse(loggedInUserID.(string))
+	if err != nil {
+		app.logger.Printf("Error parsing user ID: %v", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	id, err := todoRepo.Create(createTodoDto.Title, createTodoDto.Description, userUUID)
 	if err != nil {
 		app.logger.Printf("Error creating todo: %v", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)

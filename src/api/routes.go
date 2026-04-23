@@ -8,6 +8,7 @@ const todoIDRoute string = "/api/v1/todos/"
 const signUpRoute string = "/api/v1/auth/signup"
 const signInRoute string = "/api/v1/auth/signin"
 const refreshTokenRoute string = "/api/v1/auth/refresh"
+const swaggerRoute string = "/swagger/"
 
 func (app *application) routes() *http.ServeMux {
 	mux := http.NewServeMux()
@@ -18,6 +19,7 @@ func (app *application) routes() *http.ServeMux {
 	mux.HandleFunc(signUpRoute, app.signUpRouteHandler)
 	mux.HandleFunc(signInRoute, app.signInRouteHandler)
 	mux.HandleFunc(refreshTokenRoute, app.refreshTokenRouteHandler)
+	mux.Handle(swaggerRoute, SwaggerHandler())
 
 	return mux
 }

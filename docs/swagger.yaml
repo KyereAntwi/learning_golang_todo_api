@@ -1,0 +1,335 @@
+basePath: /api/v1
+definitions:
+  todoapi_com_m_src_domain.CreateTodoDto:
+    properties:
+      description:
+        type: string
+      title:
+        type: string
+    type: object
+  todoapi_com_m_src_domain.LoginDto:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  todoapi_com_m_src_domain.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  todoapi_com_m_src_domain.RefreshTokenDto:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  todoapi_com_m_src_domain.SignUpDto:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      primary_phone:
+        type: string
+      username:
+        type: string
+    type: object
+  todoapi_com_m_src_domain.TodoDetailDto:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  todoapi_com_m_src_domain.TodoDto:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  todoapi_com_m_src_domain.UpdateTodoDto:
+    properties:
+      description:
+        type: string
+      title:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact: {}
+  description: This is a TODO learning API built with Go.
+  title: TODO Learning with Go API
+  version: "0.30"
+paths:
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Check if the API is running and healthy
+      operationId: health-check
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API status and info
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health Check
+  /refresh-token:
+    post:
+      consumes:
+      - application/json
+      description: Refresh a user's access token
+      operationId: refresh-token
+      parameters:
+      - description: Refresh Token DTO
+        in: body
+        name: refreshTokenDto
+        required: true
+        schema:
+          $ref: '#/definitions/todoapi_com_m_src_domain.RefreshTokenDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/todoapi_com_m_src_domain.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Invalid refresh token
+          schema:
+            type: string
+        "500":
+          description: Server Error
+          schema:
+            type: string
+      summary: Refresh Token
+  /signin:
+    post:
+      consumes:
+      - application/json
+      description: Sign in a user
+      operationId: sign-in
+      parameters:
+      - description: Login DTO
+        in: body
+        name: loginDto
+        required: true
+        schema:
+          $ref: '#/definitions/todoapi_com_m_src_domain.LoginDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/todoapi_com_m_src_domain.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Invalid username or password
+          schema:
+            type: string
+        "500":
+          description: Server Error
+          schema:
+            type: string
+      summary: Sign In
+  /signup:
+    post:
+      consumes:
+      - application/json
+      description: Sign up a new user
+      operationId: sign-up
+      parameters:
+      - description: Sign Up DTO
+        in: body
+        name: signUpDto
+        required: true
+        schema:
+          $ref: '#/definitions/todoapi_com_m_src_domain.SignUpDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "409":
+          description: Username already taken
+          schema:
+            type: string
+        "500":
+          description: Server Error
+          schema:
+            type: string
+      summary: Sign Up
+  /todos:
+    get:
+      consumes:
+      - application/json
+      description: Create a new todo or get all todos
+      operationId: create-get-all-todos
+      parameters:
+      - description: Create Todo
+        in: body
+        name: todo
+        required: true
+        schema:
+          $ref: '#/definitions/todoapi_com_m_src_domain.CreateTodoDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/todoapi_com_m_src_domain.TodoDto'
+            type: array
+        "201":
+          description: Created Todo ID
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create or Get All Todos
+    post:
+      consumes:
+      - application/json
+      description: Create a new todo or get all todos
+      operationId: create-get-all-todos
+      parameters:
+      - description: Create Todo
+        in: body
+        name: todo
+        required: true
+        schema:
+          $ref: '#/definitions/todoapi_com_m_src_domain.CreateTodoDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/todoapi_com_m_src_domain.TodoDto'
+            type: array
+        "201":
+          description: Created Todo ID
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create or Get All Todos
+  /todos/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Get, update, or delete a todo by ID
+      operationId: get-update-delete-todo
+      parameters:
+      - description: Todo ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update Todo
+        in: body
+        name: todo
+        required: true
+        schema:
+          $ref: '#/definitions/todoapi_com_m_src_domain.UpdateTodoDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/todoapi_com_m_src_domain.TodoDetailDto'
+        "204":
+          description: No Content
+      summary: Get, Update, or Delete a Todo
+    get:
+      consumes:
+      - application/json
+      description: Get, update, or delete a todo by ID
+      operationId: get-update-delete-todo
+      parameters:
+      - description: Todo ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update Todo
+        in: body
+        name: todo
+        required: true
+        schema:
+          $ref: '#/definitions/todoapi_com_m_src_domain.UpdateTodoDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/todoapi_com_m_src_domain.TodoDetailDto'
+        "204":
+          description: No Content
+      summary: Get, Update, or Delete a Todo
+    put:
+      consumes:
+      - application/json
+      description: Get, update, or delete a todo by ID
+      operationId: get-update-delete-todo
+      parameters:
+      - description: Todo ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update Todo
+        in: body
+        name: todo
+        required: true
+        schema:
+          $ref: '#/definitions/todoapi_com_m_src_domain.UpdateTodoDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/todoapi_com_m_src_domain.TodoDetailDto'
+        "204":
+          description: No Content
+      summary: Get, Update, or Delete a Todo
+swagger: "2.0"

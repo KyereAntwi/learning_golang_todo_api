@@ -10,6 +10,17 @@ import (
 	"todoapi.com/m/src/repositories"
 )
 
+// @Summary Sign Up
+// @Description Sign up a new user
+// @ID sign-up
+// @Accept json
+// @Produce json
+// @Param signUpDto body domain.SignUpDto true "Sign Up DTO"
+// @Success 201 {object} map[string]interface{}
+// @Failure 400 {string} string "Bad Request"
+// @Failure 409 {string} string "Username already taken"
+// @Failure 500 {string} string "Server Error"
+// @Router /signup [post]
 func (app *application) signUpRouteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -70,6 +81,17 @@ func (app *application) signUpRouteHandler(w http.ResponseWriter, r *http.Reques
 	w.Write(responseJson)
 }
 
+// @Summary Sign In
+// @Description Sign in a user
+// @ID sign-in
+// @Accept json
+// @Produce json
+// @Param loginDto body domain.LoginDto true "Login DTO"
+// @Success 200 {object} domain.LoginResponse
+// @Failure 400 {string} string "Bad Request"
+// @Failure 401 {string} string "Invalid username or password"
+// @Failure 500 {string} string "Server Error"
+// @Router /signin [post]
 func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -157,6 +179,17 @@ func (app *application) signInRouteHandler(w http.ResponseWriter, r *http.Reques
 	w.Write(responseJson)
 }
 
+// @Summary Refresh Token
+// @Description Refresh a user's access token
+// @ID refresh-token
+// @Accept json
+// @Produce json
+// @Param refreshTokenDto body domain.RefreshTokenDto true "Refresh Token DTO"
+// @Success 200 {object} domain.LoginResponse
+// @Failure 400 {string} string "Bad Request"
+// @Failure 401 {string} string "Invalid refresh token"
+// @Failure 500 {string} string "Server Error"
+// @Router /refresh-token [post]
 func (app *application) refreshTokenRouteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

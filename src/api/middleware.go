@@ -28,7 +28,11 @@ func NewAuthMiddleware(jwtManager *JWTManager) func(next http.Handler) http.Hand
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			if r.URL.Path == healthCheckRoute || r.URL.Path == signUpRoute || r.URL.Path == signInRoute || strings.HasPrefix(r.URL.Path, swaggerRoute) {
+			if r.URL.Path == healthCheckRoute ||
+				r.URL.Path == signUpRoute ||
+				r.URL.Path == signInRoute ||
+				r.URL.Path == refreshTokenRoute ||
+				strings.HasPrefix(r.URL.Path, swaggerRoute) {
 				next.ServeHTTP(w, r)
 				return
 			}

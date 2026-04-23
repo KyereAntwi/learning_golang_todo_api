@@ -121,3 +121,13 @@ func (jm *JWTManager) GetUserIDFromToken(tokenString string) (string, error) {
 
 	return claims.Subject, nil
 }
+
+func (jm *JWTManager) CompareRefreshTokens(tokenString, hashedToken string) error {
+	sha := sha256.Sum256([]byte(tokenString))
+	hashedTokenBytes, err := base64.StdEncoding.DecodeString(hashedToken)
+	if err != nil {
+		return err
+	}
+
+	return bcrypt.CompareHashAndPassword(hashedTokenBytes, sha[:])
+}

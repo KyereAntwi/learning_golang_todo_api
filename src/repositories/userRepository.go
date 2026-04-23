@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"database/sql"
-	"encoding/base64"
 	"errors"
 	"time"
 
@@ -149,14 +148,9 @@ func (r *UserRepository) GetRefreshTokenByUserID(userID uuid.UUID) (domain.Refre
 		}
 	}
 
-	refreshToken, err := base64.StdEncoding.DecodeString(hashedToken)
-	if err != nil {
-		return domain.RefreshToken{}, err
-	}
-
 	return domain.RefreshToken{
 		UserId:      userID,
-		HashedToken: string(refreshToken),
+		HashedToken: hashedToken,
 		ExpiresAt:   expiresAt,
 		CreatedAt:   createdAt,
 	}, nil

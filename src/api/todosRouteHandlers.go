@@ -7,6 +7,9 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"todoapi.com/m/src/domain"
 	"todoapi.com/m/src/repositories"
 )
@@ -59,6 +62,13 @@ func (app *application) getSingleUpdateDeleteTodoHandler(w http.ResponseWriter, 
 
 func (app *application) getAllTodos(w http.ResponseWriter, r *http.Request) {
 
+	tracer := otel.Tracer("GetAllTodosHandler")
+
+	ctx, span := tracer.Start(r.Context(), "GetAllTodosHandler")
+	defer span.End()
+
+	r = r.WithContext(ctx)
+
 	if app.db == nil {
 		app.logger.Printf("Database connection is nil")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -73,11 +83,15 @@ func (app *application) getAllTodos(w http.ResponseWriter, r *http.Request) {
 
 	pageInt, err := strconv.ParseInt(page, 10, 64)
 	if err != nil {
+		span.AddEvent("Invalid page query parameter, defaulting to 1")
+		span.SetStatus(codes.Error, err.Error())
 		pageInt = 1
 	}
 
 	pageSizeInt, err := strconv.ParseInt(pageSize, 10, 64)
 	if err != nil {
+		span.AddEvent("Invalid page_size query parameter, defaulting to 10")
+		span.SetStatus(codes.Error, err.Error())
 		pageSizeInt = 10
 	}
 
@@ -90,7 +104,8 @@ func (app *application) getAllTodos(w http.ResponseWriter, r *http.Request) {
 
 	userUUID, err := uuid.Parse(loggedInUserID.(string))
 	if err != nil {
-		app.logger.Printf("Error parsing user ID: %v", err)
+		span.AddEvent("Error parsing user ID from context")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -98,6 +113,8 @@ func (app *application) getAllTodos(w http.ResponseWriter, r *http.Request) {
 	todos, err := todoRepo.GetAll(searchKey, userUUID, pageInt, pageSizeInt)
 	if err != nil {
 		app.logger.Printf("Error fetching todos: %v", err)
+		span.AddEvent("Error fetching todos")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
@@ -116,6 +133,8 @@ func (app *application) getAllTodos(w http.ResponseWriter, r *http.Request) {
 	todoJson, err := json.Marshal(todosResponse)
 	if err != nil {
 		app.logger.Printf("Error marshaling todos response: %v", err)
+		span.AddEvent("Error marshaling todos response")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
@@ -128,6 +147,12 @@ func (app *application) getAllTodos(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) createTodo(w http.ResponseWriter, r *http.Request) {
+
+	tracer := otel.Tracer("CreateTodoHandler")
+	ctx, span := tracer.Start(r.Context(), "CreateTodoHandler")
+	defer span.End()
+	r = r.WithContext(ctx)
+
 	if app.db == nil {
 		app.logger.Printf("Database connection is nil")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -138,16 +163,35 @@ func (app *application) createTodo(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&createTodoDto)
 	if err != nil {
 		app.logger.Printf("Error decoding create todo request: %v", err)
+		span.AddEvent("Error decoding create todo request")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
+	// log body content for debugging
+	loggedInUserID := r.Context().Value("userID")
+	span.SetAttributes(attribute.String("user_id", loggedInUserID.(string)))
+	span.AddEvent(fmt.Sprintf("CreateTodo request body: %+v", createTodoDto))
+	span.SetStatus(codes.Ok, fmt.Sprintf("CreateTodo request body: %+v", createTodoDto))
+
 	var todoRepo repositories.ITodoRepository = repositories.NewTodoRepository(app.db, app.rabbitConn)
 
-	exists, err := todoRepo.DoesTodoExist(createTodoDto.Title)
+	userUUID, err := uuid.Parse(loggedInUserID.(string))
+	if err != nil {
+		app.logger.Printf("Error parsing user ID: %v", err)
+		span.AddEvent("Error parsing user ID from context")
+		span.SetStatus(codes.Error, err.Error())
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	exists, err := todoRepo.DoesTodoExist(createTodoDto.Title, userUUID)
 
 	if err != nil {
 		app.logger.Printf("Error checking if todo exists: %v", err)
+		span.AddEvent("Error checking if todo exists")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -157,16 +201,8 @@ func (app *application) createTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	loggedInUserID := r.Context().Value("userID")
 	if loggedInUserID == nil {
 		app.logger.Printf("User ID not found in context")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	userUUID, err := uuid.Parse(loggedInUserID.(string))
-	if err != nil {
-		app.logger.Printf("Error parsing user ID: %v", err)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -174,6 +210,8 @@ func (app *application) createTodo(w http.ResponseWriter, r *http.Request) {
 	id, err := todoRepo.Create(createTodoDto.Title, createTodoDto.Description, userUUID)
 	if err != nil {
 		app.logger.Printf("Error creating todo: %v", err)
+		span.AddEvent("Error creating todo")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -190,6 +228,8 @@ func (app *application) createTodo(w http.ResponseWriter, r *http.Request) {
 	responseJson, err := json.Marshal(response)
 	if err != nil {
 		app.logger.Printf("Error marshaling create todo response: %v", err)
+		span.AddEvent("Error marshaling create todo response")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -198,6 +238,11 @@ func (app *application) createTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) getTodo(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("GetTodoHandler")
+	ctx, span := tracer.Start(r.Context(), "GetTodoHandler")
+	defer span.End()
+	r = r.WithContext(ctx)
+
 	if app.db == nil {
 		app.logger.Printf("Database connection is nil")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -207,6 +252,8 @@ func (app *application) getTodo(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Path[len(todoIDRoute):]
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
+		span.AddEvent("Invalid ID")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
@@ -220,6 +267,8 @@ func (app *application) getTodo(w http.ResponseWriter, r *http.Request) {
 		if err.Error() == "todo not found" {
 			http.Error(w, "Todo not found", http.StatusNotFound)
 		} else {
+			span.AddEvent("Error fetching todo")
+			span.SetStatus(codes.Error, err.Error())
 			http.Error(w, "Server error", http.StatusInternalServerError)
 		}
 		return
@@ -237,6 +286,8 @@ func (app *application) getTodo(w http.ResponseWriter, r *http.Request) {
 	todoJson, err := json.Marshal(todoResponse)
 	if err != nil {
 		app.logger.Printf("Error marshaling todo response: %v", err)
+		span.AddEvent("Error marshaling todo response")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
@@ -249,6 +300,14 @@ func (app *application) getTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) updateTodo(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("UpdateTodoHandler")
+	ctx, span := tracer.Start(r.Context(), "UpdateTodoHandler")
+	defer span.End()
+	r = r.WithContext(ctx)
+
+	loggedInUserID := r.Context().Value("userID")
+	span.SetAttributes(attribute.String("user_id", loggedInUserID.(string)))
+
 	if app.db == nil {
 		app.logger.Printf("Database connection is nil")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -266,6 +325,8 @@ func (app *application) updateTodo(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&updateTodoDto)
 	if err != nil {
 		app.logger.Printf("Error decoding update todo request: %v", err)
+		span.AddEvent("Error decoding update todo request")
+		span.SetStatus(codes.Error, err.Error())
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -279,6 +340,8 @@ func (app *application) updateTodo(w http.ResponseWriter, r *http.Request) {
 		if err.Error() == "todo not found" {
 			http.Error(w, "Todo not found", http.StatusNotFound)
 		} else {
+			span.AddEvent("Error updating todo")
+			span.SetStatus(codes.Error, err.Error())
 			http.Error(w, "Server error", http.StatusInternalServerError)
 		}
 		return
@@ -289,6 +352,14 @@ func (app *application) updateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) deleteTodo(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("DeleteTodoHandler")
+	ctx, span := tracer.Start(r.Context(), "DeleteTodoHandler")
+	defer span.End()
+	r = r.WithContext(ctx)
+
+	loggedInUserID := r.Context().Value("userID")
+	span.SetAttributes(attribute.String("user_id", loggedInUserID.(string)))
+
 	if app.db == nil {
 		app.logger.Printf("Database connection is nil")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -312,6 +383,8 @@ func (app *application) deleteTodo(w http.ResponseWriter, r *http.Request) {
 		if err.Error() == "todo not found" {
 			http.Error(w, "Todo not found", http.StatusNotFound)
 		} else {
+			span.AddEvent("Error deleting todo")
+			span.SetStatus(codes.Error, err.Error())
 			http.Error(w, "Server error", http.StatusInternalServerError)
 		}
 

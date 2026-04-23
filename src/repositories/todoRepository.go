@@ -226,7 +226,7 @@ func (r *TodoRepository) GetAll(searchKey string, createdBy uuid.UUID, page int6
 	return todos, nil
 }
 
-func (r *TodoRepository) DoesTodoExist(title string) (bool, error) {
+func (r *TodoRepository) DoesTodoExist(title string, createdBy uuid.UUID) (bool, error) {
 	if title == "" {
 		return false, errors.New("title cannot be empty")
 	}
@@ -234,10 +234,10 @@ func (r *TodoRepository) DoesTodoExist(title string) (bool, error) {
 	query := `
 	SELECT id
 	FROM todos 
-	WHERE title = $1`
+	WHERE title = $1 AND created_by = $2`
 
 	var id int64
-	err := r.db.QueryRow(query, title).Scan(&id)
+	err := r.db.QueryRow(query, title, createdBy).Scan(&id)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

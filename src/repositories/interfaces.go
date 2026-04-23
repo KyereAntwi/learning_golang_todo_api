@@ -12,7 +12,7 @@ type ITodoRepository interface {
 	Delete(id int64) error
 	ChangeStatus(id int64, status string) error
 	GetAll(searchKey string, createdBy uuid.UUID, page int64, pageSize int64) ([]domain.Todo, error)
-	DoesTodoExist(title string) (bool, error)
+	DoesTodoExist(title string, createdBy uuid.UUID) (bool, error)
 }
 
 type IUserRepository interface {

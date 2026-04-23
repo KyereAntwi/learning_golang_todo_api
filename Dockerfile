@@ -9,6 +9,7 @@ RUN go mod download
 
 # copy the full source tree and build the binaries
 COPY src ./src
+COPY docs ./docs
 WORKDIR /app/src/api
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/api .
 WORKDIR /app/src/workers

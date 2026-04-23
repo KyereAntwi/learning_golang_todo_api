@@ -1,0 +1,46 @@
+name: Deploy to Development
+
+on:
+  workflow_run:
+    workflows: ["CI - Build & Test"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment: development
+
+    steps:
+      - name: Deploy to Development Server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEV_SERVER_HOST }}
+          username: ${{ secrets.SERVER_SSH_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            # Write the environment file
+            cat << 'ENVEOF' > /opt/todo-api/.env
+            ${{ secrets.DEV_ENV_FILE }}
+            ENVEOF
+
+            # Pull the latest image
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/golang-todo-api:latest
+
+            # Stop and remove the old container (if running)
+            docker stop todo-api-dev 2>/dev/null || true
+            docker rm todo-api-dev 2>/dev/null || true
+
+            # Run the new container
+            docker run -d \
+              --name todo-api-dev \
+              --restart unless-stopped \
+              --env-file /opt/todo-api/.env \
+              -p 8080:8080 \
+              ${{ secrets.DOCKERHUB_USERNAME }}/golang-todo-api:latest
+
+            # Clean up old images
+            docker image prune -f
+
+            echo "Development deployment complete"
